@@ -1,6 +1,7 @@
 //@ts-nocheck
 import axios from "axios";
-const url='http://localhost:5000'
+const url=import.meta.env.VITE_API_URL
+// console.log(url);
 interface RegisterUserData {
   uid: string;
   email: string;
