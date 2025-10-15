@@ -11,6 +11,7 @@ interface RegisterUserData {
 
 export const registerUser = async (userData: RegisterUserData) => {
   try {
+    console.log('Registering User');
     const response = await axios.post(`${url}/user/register-user`, userData); // adjust route
     return response.data;
   } catch (error: any) {
@@ -21,6 +22,7 @@ export const registerUser = async (userData: RegisterUserData) => {
 
 export const getUser = async (uid:string) => {
   try {
+    console.log('Getting  User');
     
     const response = await axios.get(`${url}/user/get-user?uid=${uid}`); // adjust route
     return response.data;

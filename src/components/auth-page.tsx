@@ -24,7 +24,7 @@ import {
   Moon,
   Sun,
 } from "lucide-react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate,  useSearchParams } from "react-router-dom";
 
 
 import {
@@ -32,17 +32,17 @@ import {
   useCreateUserWithEmailAndPassword,
 } from "react-firebase-hooks/auth";
 import {  updateProfile } from "firebase/auth";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import {auth,db} from "../Service/Firebase.config.js"
 import {useFirebase} from "../Service/Firebase.context.jsx"
-import { getUser, registerUser } from "@/Service/Api.js";
+import { registerUser } from "@/Service/Api.js";
 export function AuthPage() {
   const { theme, toggleTheme } = useTheme();
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [showPassword, setShowPassword] = useState(false);
 
   const navigate = useNavigate();
-  const {signInWithGoogle,googleLoading,googleError,user}=useFirebase();
+  const {signInWithGoogle,googleLoading,googleError,user,setDuser}=useFirebase();
   // firebase hooks
   const [
     signInWithEmailAndPassword,
@@ -89,19 +89,26 @@ const [userType, setUserType] = useState<'brand' | 'influencer'>(
   paramType === 'influencer' ? 'influencer' : 'brand'
 );;
 
+
   // if sign in/up succeed -> redirect (once firebase user available)
   useEffect(() => {
-    if (signInUser || createdUser  ) {
+    if ((signInUser ||user)&&authMode!=='signup') {
       // redirect to dashboard
       setTimeout(async()=>{
-        if(authMode==='signup'){
-        navigate(`/${userType}-dashboard`);}
-        else
-        {
-          const data=await getUser(user.uid);
-          console.log(data);
-          navigate(`/${data.user.role}-dashboard`);
-        }
+       
+         const userDoc = await getDoc(doc(db, "users", user.uid));
+
+            if (userDoc.exists()) {
+            const userData = userDoc.data();
+            const userRole = userData.userType; // 'brand' or 'influencer'
+            navigate(`/${userRole}-dashboard`);
+            } else {
+            console.error("User not found in Firestore");
+            setClientMessage({
+              type: "error",
+              text: "Could not find user info. Please log in again.",
+           });}
+        
       },1000)
     }
   }, [signInUser, createdUser, navigate, user, userType, authMode]);
@@ -121,6 +128,9 @@ const [userType, setUserType] = useState<'brand' | 'influencer'>(
           break;
         case "auth/wrong-password":
           message = "Incorrect password. Please try again.";
+          break;
+        case "auth/network-request-failed":
+          message = "Network Error. Ensure Stable Internet connection.";
           break;
         case "auth/invalid-email":
           message = "Invalid email format.";
@@ -215,11 +225,32 @@ const [userType, setUserType] = useState<'brand' | 'influencer'>(
           name: `${formData.firstName} ${formData.lastName}`,
           role: userType ?? "influencer",
         };
-        await registerUser(userData);
-                  setClientMessage({
-                    type: "success",
-                    text: "Account created. Redirecting...",
-                  });
+        
+       try{
+         const data=await registerUser(userData);
+         if(data.user)
+        {
+          setDuser(data.user);
+          // 🟢 Show success message
+          setClientMessage({
+            type: "success",
+            text: "Account created successfully! Redirecting...",
+          });
+
+          // ⏱ Wait 1.5 seconds so message is visible
+          setTimeout(() => {
+            navigate(`/${data.user.role}-dashboard`);
+          }, 1500);
+        }
+       }catch(Err)
+       {
+        setClientMessage({
+          type: "Error",
+          text: "Error in creating Account.Try after some time",
+        });
+        
+       }
+        
           // navigate will run via useEffect because createdUser becomes truthy
         } else {
           // If createdUser not present yet, let the hook handle state; provide user feedback.
@@ -483,7 +514,7 @@ const [userType, setUserType] = useState<'brand' | 'influencer'>(
               <Button
                 type="submit"
                 className="w-full h-11 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
-                disabled={isLoading}
+                disabled={isLoading||user}
               >
                 {isLoading ? (
                   <div className="flex items-center space-x-2">

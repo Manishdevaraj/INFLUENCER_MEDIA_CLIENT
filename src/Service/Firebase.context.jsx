@@ -2,27 +2,24 @@
 import { onAuthStateChanged, signInWithPopup } from "firebase/auth";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { auth, googleAuthProvider } from "./Firebase.config";
-import {getUser} from "./Api";
 import {useNavigate} from "react-router-dom";
 const FirebaseContext = createContext();
 export const FirebaseProvider=({children})=>
 {
     const [user,setUser]=useState();
     const [dbUser,setDuser]=useState();
+    const [loading, setLoading] = useState(true);
     const [googleLoading, setgoogleLoading] = useState(false);
     const [googleError, setgoogleError] = useState(null);
     const navigate=useNavigate();
+    
     useEffect(() => {
               const unSubscribe = onAuthStateChanged(auth, async (user) => {
                 // console.log("Auth state changed:", user);
                 setUser(user);
 
-                if (user) {
-                  const u = await getUser(user.uid);
-                  setDuser(u.user);
-                } else {
-                  setDuser(null);
-                }
+                setLoading(false);
+                
               });
 
           return () => unSubscribe();
@@ -65,7 +62,7 @@ export const FirebaseProvider=({children})=>
              }
          
 
-   return <FirebaseContext.Provider value={{user,dbUser,setUser,signInWithGoogle,googleLoading,googleError,logout}}>
+   return <FirebaseContext.Provider value={{user,dbUser,setDuser,setUser,signInWithGoogle,googleLoading,googleError,logout,loading}}>
     {children}
    </FirebaseContext.Provider>
 }

@@ -4,32 +4,47 @@ import { useFirebase } from "../Service/Firebase.context.jsx";
 import { Outlet, useNavigate } from "react-router-dom";
 import { getUser } from "../Service/Api.js";
 
-function ProtectedRoute({ children }) {
-  const { user } = useFirebase();
-  const [dbUser, setDbUser] = useState(undefined); // undefined = loading
+function ProtectedRoute() {
+  const { user, dbUser, setDuser, loading } = useFirebase();
+  const [fetching, setFetching] = useState(false);
   const navigate = useNavigate();
 
+  // 🔹 Wait for Firebase to finish checking user before fetching from your API
   useEffect(() => {
-    const fetchUser = async () => {
-      if (!user) {
-        navigate("/auth"); // match your route
-        return;
-      }
-      try {
-        const u = await getUser(user.uid);
-        setDbUser(u.user);
-      } catch (err) {
-        console.error(err);
-        navigate("/auth"); // fallback if DB fetch fails
+    const fetchDbUser = async () => {
+      if (user) {
+        setFetching(true);
+        try {
+          console.log("Getting User");
+          const res = await getUser(user.uid);
+
+          setDuser(res.user);
+        } catch (err) {
+          console.error("Error fetching dbUser:", err);
+        } finally {
+          setFetching(false);
+        }
       }
     };
-    fetchUser();
-  }, [user, navigate]);
+    if (user) fetchDbUser();
+  }, [user]);
 
-  // Show nothing or loader while fetching
-  if (dbUser === undefined) return null;
+  // 🔹 While Firebase is still initializing
+  if (loading || fetching) {
+    return <div>Loading...</div>;
+  }
 
-  return <Outlet />;;
+  // 🔹 After Firebase finishes loading but user not logged in
+  if (!user && !loading) navigate("/auth");
+
+
+  // 🔹 If dbUser still not found (e.g., first login or deleted record)
+  if (!dbUser) {
+    return <div>Setting up your profile...</div>;
+  }
+
+  // 🔹 All good, show the protected routes
+  return <Outlet />;
 }
 
 export default ProtectedRoute;
